@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Craft Playbook"
+  short_description: "视频创作能力地图与工艺手册，按任务规划工具组合，案例收尾判断有无值得沉淀的经验，有才回写"
+  default_prompt: "使用 $video-craft-playbook 拆解这条视频的表达需求，对照能力地图写出能力分工表。"
