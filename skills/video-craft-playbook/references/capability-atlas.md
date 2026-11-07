@@ -40,6 +40,7 @@
 | D6 | 视频稳定 | 去晃动与变换数据 | 高 | 免费 | 案例验证 |
 | D7 | 调色匹配与统一 look | 镜头间统一与风格 LUT | 高 | 免费 | 案例验证 |
 | E1 | numpy 音频合成与混音 | 配乐部件、拟音、总线混音 | 高 | 免费 | 案例验证 |
+| E2 | 人声分离 | 成品混音拆成人声与非人声轨 | 中 | 免费 | 案例验证 |
 | F1 | 叙事与提示词 Skills | 剧本、分镜、prompt | 不适用 | 免费；出分镜图付费 | 部分验证 |
 | G1 | 参考片拆解 | 切点、段落、声音结构 | 高 | 免费 | 案例验证 |
 | G2 | 内容理解与语音识别 | 带时间戳转写、内容理解 | 中 | 低 | 案例验证 |
@@ -56,7 +57,7 @@
 ### A1 Remotion
 - **产出**：React 组件按帧号渲染成视频；同一工程里可用 DOM/CSS、SVG、Canvas2D、WebGL、three.js（`@remotion/three`）。
 - **擅长的表达**：排版与动态文字、UI / 产品界面重建、数据驱动的图形、旁白驱动的叙事 MG、2.5D 轴测、程序化笔触；DOM 底下垫全屏 WebGL 着色器补有机氛围、单张 Canvas2D 做光照合成、SVG 滤镜做墨迹洇开（实现见工作区技法表）；对素材做后处理：`@remotion/effects`（≥4.0.464）约 60 个着色器效果（模糊、色彩与 LUT、风格化、几何、色键，`createEffect()` 可自定义）、`@remotion/transitions` 的几何与着色器转场、`@remotion/motion-blur`、`@remotion/captions`，清单以官方文档为准；适合任意一帧可单独渲染、卡点精确、反复修改的片子。
-- **边界**：没有真实的身体动作和实拍质感；光照受浏览器光栅化限制（无 GI、无景深）；跨帧状态在并发渲染下出错；长片 DOM 渲染偶有崩溃，需分段可续跑；跟踪、稳定、抠像、补帧这类要分析素材像素的工作由外部算好再交回数据或 alpha。着色器效果与转场要 `--gl=angle`（无 GPU 时 `swangle`）；HTML-in-canvas 类转场（filmBurn、zoomBlur 等）的 Studio 预览需 Chrome ≥149 开 `canvas-draw-element`，API 尚不稳定；`<CameraMotionBlur>` 损伤色彩、耗时随 samples 成倍增加（文档核实）；`lut()` 渲染后 ΔE 比离线高约 1.2（code-to-cinema）。
+- **边界**：没有真实的身体动作和实拍质感；浏览器光栅化没有 GI 和景深（片元路径追踪可以，代价见 B1）；跨帧状态在并发渲染下出错；长片 DOM 渲染偶有崩溃，需分段可续跑；跟踪、稳定、抠像、补帧这类要分析素材像素的工作由外部算好再交回数据或 alpha。着色器效果与转场要 `--gl=angle`（无 GPU 时 `swangle`）；HTML-in-canvas 类转场（filmBurn、zoomBlur 等）的 Studio 预览需 Chrome ≥149 开 `canvas-draw-element`，API 尚不稳定；`<CameraMotionBlur>` 损伤色彩、耗时随 samples 成倍增加（文档核实）；`lut()` 渲染后 ΔE 比离线高约 1.2（code-to-cinema）。
 - **确定性**：高。画面是帧号的纯函数，随机数带种子即可完全复现。
 - **代价**：免费；1080p 全片渲染从十几秒（three.js 短片）到约 4 分钟（236 s DOM + SVG 滤镜 + 全屏着色器，并发 6）不等，75 s 后处理片 2250 帧约 5 分钟（并发 4）；前期要写代码，后续每轮修改便宜。
 - **接口**：输入图片、视频底片、音频、JSON 时间轴；输出 mp4 或 PNG 序列（可带 alpha）。可与生成底片、Blender 渲染序列、numpy 音频拼接。
@@ -110,12 +111,12 @@
 ### B1 three.js / React Three Fiber
 - **产出**：实时光栅化 3D：透视或正交相机、自定义着色器、InstancedMesh、MRT 多通道。
 - **擅长的表达**：体素与像素物件、等轴建筑（正交 + 按法线分档着色 + 深度/法线描线）、物理烘焙数据回放、渲染通道显形（热图 → 深度 → 成品）。
-- **边界**：没有 GI 和真实软阴影，“棚拍质感”“草地、云海、落日”这类靠光照成立的画面难做；颜色管理要手动关（像素风）；r186 有若干 API 变化（见 pitfalls）。
+- **边界**：光栅化没有 GI 和真实软阴影，“棚拍质感”“草地、云海、落日”这类靠光照成立的画面难做；几何能写成解析求交时（网格 DDA + 球），可绕开 three.js，在 WebGL2 片元着色器里路径追踪，得到反弹光、软阴影和景深，1080p、3 spp 约 0.8 s/次（M2 Pro，claude-showreel）；颜色管理要手动关（像素风）；r186 有若干 API 变化（见 pitfalls）。
 - **确定性**：高。
 - **代价**：免费；843 帧 1080p60 约 18–24 s（并发 4）。
 - **接口**：在 Remotion 里用 `<ThreeCanvas>`，或独立页面；可读 Blender 导出的 `.glb`（节点名会被改写，序号放 extras）。
 - **入口**：项目内 `npm install --save-exact three@0.186.1 @types/three@0.186.0 @react-three/fiber@9.8.2 @remotion/three@4.0.536`（已验证组合）。
-- **验证**：案例验证（bell-machine、library-3d、city-love）；核验 2026-10-23。
+- **验证**：案例验证（bell-machine、library-3d、city-love）；片元路径追踪案例验证（claude-showreel）；核验 2026-11-07。
 
 ### B2 Blender
 - **产出**：Python（bpy）脚本建模、布光、动画，EEVEE 或 Cycles 后台渲染；也可经 MCP 操作正在运行的 Blender。
@@ -144,12 +145,12 @@
 ### C1 生成视频
 - **产出**：文生视频、图生视频、参考视频 / 多参考生成的视频片段（常见 5–10 s，24 fps）。
 - **擅长的表达**：代码做不出的东西：真人与身体动作、手势、手持镜头与三维视差、鱼眼与运动模糊等镜头语言、有机纹理（墨迹扩散、烟、水）、实拍质感。生成的片段常当作“底片”或“素材库”交给合成端切用。
-- **边界**：动作描述不一定被执行（“捏住再打响指”出成 OK 手势），精确时机要靠后期变速；清晰静止的手指是主要风险；真人输入视频会被拒；姿势描述可能触发审核（提交后约 20 s 失败退款且无原因）；文字和图形不要交给生成端；Seedance 2.5 的 t2v 不接受 `camera_fixed`，机位固定要写进 prompt；`generate_audio` 默认 true，静默素材也会因输出音轨被判版权失败。
+- **边界**：动作描述不一定被执行（“捏住再打响指”出成 OK 手势），精确时机要靠后期变速；清晰静止的手指是主要风险；真人输入视频会被拒；姿势描述可能触发审核（提交后约 20 s 失败退款且无原因）；文字和图形不要交给生成端；Seedance 2.5 的 t2v 不接受 `camera_fixed`，机位固定要写进 prompt；`generate_audio` 默认 true，静默素材也会因输出音轨被判版权失败。API 直连上游会拒绝写实的生成人脸参考图，first_frame 不能与参考媒体混用；先在画布平台登记角色库可过。对口型：Seedance 参考音频会重唱，晚约 0.39 s；Kling Avatar 原样播放输入人声，prompt 里带引号的歌词会画成乱码字幕，演唱易带笑（只写「不笑」压不住，正面写成怒吼、嘴角下压后消失），手势随首帧不随 prompt。
 - **确定性**：低。同一 prompt 结果不同，按“生成后先审片再用”规划。
-- **代价**：付费。案例实测：按秒或按条计费，各平台单价差异大；有的平台没有提交前报价接口（只能用历史任务折算），Higgsfield 有 `get_cost`。
-- **接口**：输入参考图（身份、场景各管一件事）、首尾帧、参考视频；输出 mp4，需映射到合成端帧率。首尾帧给同一张设定稿、prompt 写机位完全固定并逐条列“画里什么动、怎么动”，画内元素动起来又回到原构图，片段首尾能无缝接转场；5 s 里挑最好的约 1 s 再变速（外部 huashu-art-motion 路线 C，本机未验证）。
+- **代价**：付费。案例实测：按秒或按条计费，各平台单价差异大；对口型任务的上游可能长时间超时（未扣费）；有的平台没有提交前报价接口（只能用历史任务折算），Higgsfield 有 `get_cost`。
+- **接口**：输入参考图（身份、场景各管一件事）、首尾帧、参考视频；输出 mp4，需映射到合成端帧率。图生时首帧决定站位：首帧一字排开，prompt 写的「两两背靠背」「队形切换」只在原地执行，要改队形先改首帧（idol-trailer）。首尾帧给同一张设定稿、prompt 写机位完全固定并逐条列“画里什么动、怎么动”，画内元素动起来又回到原构图，片段首尾能无缝接转场；5 s 里挑最好的约 1 s 再变速（外部 huashu-art-motion 路线 C，本机未验证）。 Seedance 2.5 可同时传 `reference_audio`：带情绪的中文对白，听审明显胜过克隆 TTS（qingniang-seedance-voice）；样本只有 3–6 秒时，prompt 要写明只锁音色，逐句写发声状态。
 - **入口**：`tams-model-router`（Seedance、Kling、Wan、Vidu、Hailuo 等，以其当前清单为准）、`higgsfield-generate`；提示词前期见 F1。
-- **验证**：案例验证（Seedance 2.5：katana-face-edit-2、fw26-lookbook、city-love）；其他模型已接入未在成片中验证；核验 2026-10-23。
+- **验证**：案例验证（Seedance 2.5：katana-face-edit-2、fw26-lookbook、city-love、idol-fx-mid；Kling v3 Avatar：idol-fx-mid；Kling V3 图生环境运动与 Seedance 2.5 经画布平台 CLI：idol-trailer）；其他模型已接入未在成片中验证；核验 2026-11-03。
 
 ### C2 生成图像
 - **产出**：关键帧、场景底图、角色与道具设定图、风格帧、四视图。
@@ -184,7 +185,7 @@
 ### C5 旁白 / TTS
 - **产出**：按句生成的语音。
 - **擅长的表达**：中文旁白（百炼 qwen-audio-3.0-tts 系列，基础音色里有 6–10 岁童声，可用 `instruction` 描述语气）；英文旁白（ElevenLabs eleven_v3）；macOS `say` 本地免费，适合机器感的短句，逐词时刻可按逐前缀合成测出（code-to-cinema）。
-- **边界**：同一句两次时长不同；只给整句对齐，逐词时刻要自己切；百炼句首单独的“AI”会读错；“句间自然停顿”指令会出长停顿或重复半句；ElevenLabs 没有童声，变调会有机械感。`say` 音质明显不如付费 TTS。
+- **边界**：同一句两次时长不同；只给整句对齐，逐词时刻要自己切；百炼句首单独的“AI”会读错；“句间自然停顿”指令会出长停顿或重复半句；ElevenLabs 没有童声，变调会有机械感。`say` 音质明显不如付费 TTS。 克隆音色配带情绪的剧情台词可能缺语气，ASR 全对也听着违和，先拿几句放回片中听审。（qingniang-voice-route）
 - **确定性**：中；每句生成后立即 ASR 核对。
 - **代价**：低（百炼约 0.01 credit/字，0.2–0.8 credit/句）。
 - **接口**：输出 wav；与时间轴、侧链混音配合。
@@ -204,12 +205,12 @@
 ### C7 画布与编排平台
 - **产出**：在平台画布上编排图像、视频、素材节点。
 - **擅长的表达**：多节点生成流程的可视化编排、团队共享（推断）。
-- **边界**：本机未用于成片。
+- **边界**：画布平台生成前把参考图登记进角色库，写实生成人脸能过审（idol-fx-mid）。
 - **确定性**：低（生成为主）。
 - **代价**：按平台计费。
 - **接口**：平台 API / CLI。
-- **入口**：`forge-canvas`、`libtv-cli` Skill。
-- **验证**：已安装未验证；核验 2026-10-23。
+- **入口**：画布平台的 CLI Skill、`libtv-cli` Skill。
+- **验证**：案例验证。idol-fx-mid：网页运行 4 段 Seedance。idol-trailer（2026-11-03）：经平台 CLI 走 create → configure → estimate → 确认 → submit → `run wait` → download 全链路跑通 Kling V3 图生 3 段、Seedance 2.5 7 段、GPT Image 2.5 首帧 1 次，全部成功。报价只在部署了预检的环境里有效；网页跑过的节点 CLI 改不了，需新建。核验 2026-11-03。
 
 ---
 
@@ -237,13 +238,13 @@
 
 ### D3 抠像与 matte
 - **产出**：前景 alpha。
-- **擅长的表达**：给合成端分层。若在生成阶段就把背景和光写成“能直接抠”的样子（过曝逆光窗户、纯黑背景、俯拍白纸），亮度阈值就是 matte，可省掉抠像模型。
+- **擅长的表达**：给合成端分层。若在生成阶段就把背景和光写成“能直接抠”的样子（过曝逆光窗户、纯黑背景、俯拍白纸），亮度阈值就是 matte，可省掉抠像模型。生成底片上逐帧跑 MediaPipe 人物分割，可让字退到人物身后（发光半透明的分身不算人）。
 - **边界**：`remove_background` 输出黑底人物、没有 alpha，要用 matte 与原片的比值重建；CSS `mask-image` 在 Remotion 里不会被等待加载；主体比背景暗时（墨、烟、剪影）亮度阈值出不了 matte，改用静止背景差分，毛边另拆 core / fringe。
 - **确定性**：中到高。
 - **代价**：亮度阈值免费；平台抠像付费。
 - **接口**：输出 alpha 序列。
-- **入口**：Higgsfield `remove_background`；D2 的脚本。
-- **验证**：案例验证（katana-face-edit-2、city-love）；核验 2026-10-23。
+- **入口**：Higgsfield `remove_background`；D2 的脚本；本机 `effects/snippets/overlay-compositing/person_matte_mp.py`。
+- **验证**：案例验证（katana-face-edit-2、city-love、idol-fx-mid）；核验 2026-11-03。
 
 ### D4 超分与视频增强
 - **产出**：分辨率提升、画质增强。
@@ -258,12 +259,12 @@
 ### D5 补帧与变速
 - **产出**：时间重映射后的视频：分段恒速、连续速度曲线、定格、倒放，以及慢动作所需的中间帧与帧率转换。
 - **擅长的表达**：把动作峰值对到节拍或事件点的变速坡道（editing-grammar EG-30）；动作高光的慢动作；生成底片 24 fps 转 30 / 60 fps；生成素材时机不受控时用变速对齐时间权威（craft-lessons L12）。
-- **边界**：帧复制在慢动作下顿挫，帧混合出重影；光流补帧（ffmpeg `minterpolate`）和学习型补帧（RIFE 类）在遮挡、快速运动、细线和文字处出现扭曲与拖尾；连续速度曲线在 Remotion 里要自己把成片帧映射到源时间（推断）；变速后的原声需要单独处理（变调、静音或换音效）。
+- **边界**：帧复制在慢动作下顿挫，帧混合出重影；光流补帧（ffmpeg `minterpolate`）和学习型补帧（RIFE 类）在遮挡、快速运动、细线和文字处出现扭曲与拖尾；连续速度曲线在 Remotion 里要自己把成片帧映射到源时间（逐帧速率表累加成素材帧号、`Freeze` 取帧，素材不够时整条按比例压慢；idol-trailer）；变速后的原声需要单独处理（变调、静音或换音效）。
 - **确定性**：帧复制、帧混合、光流补帧高；学习型补帧中到高（随模型与版本变化）。
 - **代价**：ffmpeg 免费，`minterpolate` 很慢；学习型补帧本地需要 GPU 或付费平台（推断）。
 - **接口**：输入源视频 + 时间映射表（成片时间 → 源时间）；输出视频或 PNG 序列交给合成端。
 - **入口**：ffmpeg `setpts`、`framerate`、`minterpolate`（D1、`ffmpeg-video-editor`）；学习型补帧工具本机未安装。
-- **验证**：案例验证（code-to-cinema：minterpolate mci 把 12 fps 36 帧补成 60 fps 171 帧，再按速度曲线取样做 0.25× 坡道，与重复帧版并排对照）；学习型补帧未验证；核验 2026-10-24。
+- **验证**：案例验证（code-to-cinema：minterpolate mci 把 12 fps 36 帧补成 60 fps 171 帧，再按速度曲线取样做 0.25× 坡道，与重复帧版并排对照）；Remotion `OffthreadVideo` 逐帧时间映射做子弹时间与 1.5× → 0.25× 变速坡道（idol-trailer）；学习型补帧未验证；核验 2026-11-03。
 
 ### D6 视频稳定
 - **产出**：去除意外晃动后的视频，以及每帧的变换数据。
@@ -298,6 +299,16 @@
 - **接口**：读 `events.json` / `timeline.json`，输出 wav 分轨与混音。
 - **入口**：本机 `effects/snippets/procedural-audio/`（music_kit、foley、mixbus）、`effects/snippets/audio-sync/`（beats、verify_music）。
 - **验证**：案例验证（let-me-paint、make-it-move、bell-machine、library-iso、arc-axo、city-love）；核验 2026-10-23。
+
+### E2 人声分离
+- **产出**：从成品混音拆出的人声轨和非人声轨。
+- **擅长的表达**：只有成品混音、又要改声音设计时：保留原台词表演，同时做静默、声音先入、删句，或只替换个别台词。
+- **边界**：人声轨不等于台词，人群和婴儿声也可能进去；ASR 读不出非人声轨里的台词，不代表听感干净，要人耳确认；做到绝对静默要手动处理。
+- **确定性**：中；模型固定时可复现，分离质量随素材变化。
+- **代价**：免费；5:26 成片在 Apple Silicon（MPS）上约 56 s；首次要下载依赖和模型。
+- **接口**：输入混音 wav，输出同长度两轨，两轨相加与原混音差约 −48 dB；后续接混音（E1）或配音（C5）。
+- **入口**：独立 venv 安装 `demucs`、`soundfile`，直接调用 `demucs.apply.apply_model`（htdemucs）；不走命令行，缺 torchaudio 也能跑。
+- **验证**：案例验证（qingniang-voice-route，用户听审可用）；核验 2026-11-04。
 
 ---
 
@@ -339,12 +350,12 @@
 
 ### G3 机器验收脚本
 - **产出**：可执行的通过 / 失败信号。
-- **擅长的表达**：卡点误差表、色彩预算、定格节奏、乒乓帧（逐帧抖动）、三档明暗逐像素核对、斜边测角、关键帧对位、配乐未被改动的证明、编码后响度与真峰值、翻页 PPT 感（镜头内快速运动帧占比）。
+- **擅长的表达**：卡点误差表、色彩预算、定格节奏、乒乓帧（逐帧抖动）、三档明暗逐像素核对、斜边测角、关键帧对位、配乐未被改动的证明、编码后响度与真峰值、翻页 PPT 感（镜头内快速运动帧占比）、对口型偏移（唇开合对人声 RMS、梅尔频谱匹配）。
 - **边界**：自动检查是线索不是判决：`cadence` 会在自然静止段误报，测量工具要先在已知答案上校准。快动帧占比的阈值是外部在解说片上标定的（craft-lessons L34），抒情慢片读红只当“去看”。
 - **确定性**：高。
 - **代价**：免费。
 - **接口**：读成片 mp4、音频分轨、事件表。
-- **入口**：本机 `effects/snippets/mg-qa/`（qa.py、pingpong.py、contact.sh、tones.py、angles.py、motion_gate.py）、`effects/snippets/ref-match/`、`effects/snippets/audio-sync/`；`ffmpeg -af ebur128=peak=true`。
+- **入口**：本机 `effects/snippets/mg-qa/`（qa.py、pingpong.py、contact.sh、tones.py、angles.py、motion_gate.py）、`effects/snippets/ref-match/`、`effects/snippets/audio-sync/`、mv-pipeline `tools/lipsync_measure.py`；`ffmpeg -af ebur128=peak=true`。
 - **验证**：案例验证（全部 Remotion 项目、b612-slice）；motion_gate 为合成片验证 + 18 支历史成片试跑，未进新案例；核验 2026-10-26。
 
 ### G4 同步歌词数据源（LRC）
@@ -364,8 +375,8 @@
 - **确定性**：统计指标与光流高；检测、分割、跟踪模型中（随模型、版本与阈值变化）。
 - **代价**：本地运行免费（模型需要 CPU / GPU 时间）；平台视频理解按调用计费（推断）。
 - **接口**：输入视频；输出 edit-signals JSON，供剪辑决策和渲染端的变换关键帧使用。
-- **入口**：ffmpeg `scdet` / `select='gt(scene,x)'`（G1、D1）；不装 OpenCV 时可用 numpy：FFT 相位相关测全局位移、颜色阈值质心跟踪单色主体（工作区 `effects/snippets/post-lab/lab.py`）；OpenCV（`opencv-python-headless` 5.0）装在工作区根 `.venv`，LK 跟踪 + 相似变换已用于 `mg-qa/motion_gate.py` 的相机补偿；PySceneDetect、检测与分割跟踪模型（YOLO、SAM2 一类）本机未安装。
-- **验证**：numpy 路线案例验证（code-to-cinema：自产底片上颜色质心跟踪覆盖 100%，驱动 9:16 重构图）；OpenCV LK 相机补偿在合成快推片上验证（快推未被误判为切点）；检测 / 分割模型路线仍为推断，`scenedetect` 未安装；核验 2026-10-26。
+- **入口**：ffmpeg `scdet` / `select='gt(scene,x)'`（G1、D1）；不装 OpenCV 时可用 numpy：FFT 相位相关测全局位移、颜色阈值质心跟踪单色主体（工作区 `effects/snippets/post-lab/lab.py`）；OpenCV（`opencv-python-headless` 5.0）装在工作区根 `.venv`，LK 跟踪 + 相似变换已用于 `mg-qa/motion_gate.py` 的相机补偿（5.0 不带 Haar 级联）；人脸框可用 macOS Vision（Swift，系统自带，不下载模型，工作区 `effects/snippets/face-track/`）；PySceneDetect、检测与分割跟踪模型（YOLO、SAM2 一类）本机未安装。
+- **验证**：numpy 路线案例验证（code-to-cinema：自产底片上颜色质心跟踪覆盖 100%，驱动 9:16 重构图）；OpenCV LK 相机补偿在合成快推片上验证（快推未被误判为切点）；macOS Vision 人脸框在生成底片上驱动跟随标注（idol-trailer：12 fps 检测、去单帧闪现、3 帧平均）；其他检测 / 分割模型路线仍为推断，`scenedetect` 未安装；核验 2026-11-03。
 
 ---
 

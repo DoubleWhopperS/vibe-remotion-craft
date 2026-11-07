@@ -23,3 +23,9 @@
 | 2026-10-30 | lensless | 120 s 发布片式短片：4 条生成底片 + 生成配乐当时间权威 + 7 条代码管线，主题『谁说视频一定要有一台摄像机』 | 已蒸馏 2026-10-30 | 合并进 `references/capability-atlas.md`：D4 卡“验证”“代价”行补首次进成片与 fast 1080p 实测单价。 |
 | 2026-10-30 | asset-discovery-poc | 12 s 讲解片片段：一句文案 → 镜头描述 → Commons 检索两镜实拍 → 调色与帧率匹配 → Remotion 合成，验证真实素材检索链路 | 已蒸馏 2026-10-30 | 合并进 `references/capability-atlas.md`：H1 的边界、代价、入口、验证四行和总览行；H2 的验证行。 |
 | 2026-10-31 | llm-launch-agate | LLM 5.5 宣传片两版：100 s 暗场炫技版被用户判「言之无味」，拆解 Kimi K3 发布片后复刻 45 s 档案质感版「Agate」 | 已蒸馏 2026-10-31 | 合并进 `capability-atlas.md` H1：边界（Mixkit 逐条许可、720p、竖屏、音乐不含广播 / 音效含；Openverse 音频只有短音效）、入口（Mixkit 抓取脚本指针）、验证（llm-launch-agate 实测与 Commons 缩略图规避 429）。 |
+| 2026-11-03 | idol-fx-mid | 虚拟女团出道 MV：Kling 对口型 + Seedance 动作素材，Remotion 做电流歌词、特效与人物遮罩的 14 s 中间版 | 已蒸馏 2026-11-03 | 合并进 `capability-atlas.md` C1：边界（写实生成人脸被上游拒、画布平台角色库可过、Seedance 参考音频重唱晚 0.39 s、Kling Avatar 原样播放音频及引号歌词出乱码字幕）、代价（Kling Avatar 单价）、验证（idol-fx-mid）。 |
+| 2026-11-03 | idol-trailer | 虚拟女团出道 MV 预告片：原曲 86 s 不剪，画布平台多模型生成 + Remotion 50 刀剪辑、转播层与子弹时间，导演七轮反馈 | 已蒸馏 2026-11-03 | 合并进 `capability-atlas.md` C1：接口（首帧决定站位）、代价（Seedance 5 s、Kling V3 图生单价）、验证（idol-trailer）。 |
+| 2026-11-04 | qingniang-v4-audit | 《青娘》v4 成片逐帧审片与系统性迭代建议（只审不改片） | 已蒸馏 2026-11-04 | 合并进 pitfalls.md：Seedance 24 fps 条。合并进 craft-lessons.md：L47。合并进 task-lenses.md：第六节“交付成片还是可编辑的时间线”问题。 |
+| 2026-11-04 | qingniang-voice-route | 《青娘》声音路线试听：人声分离与音色复刻对比 | 已蒸馏 2026-11-04 | 新增 capability-atlas.md：E2（无可合并条目：手册没有人声分离能力）。合并进 capability-atlas.md：C5 边界。合并进 task-lenses.md：第六节分轨问题的指针。 |
+| 2026-11-04 | qingniang-seedance-voice | 《青娘》Seedance 参考音频对白样段：用户听审通过 | 已蒸馏 2026-11-04 | 合并进 capability-atlas.md：C1 接口。 |
+| 2026-11-07 | claude-showreel | Claude 自荐 showreel：15 秒 1080p60 全程序化动效片 | 已蒸馏 2026-11-07 | 合并进 capability-atlas.md：A1 边界、B1 边界与验证。 |
