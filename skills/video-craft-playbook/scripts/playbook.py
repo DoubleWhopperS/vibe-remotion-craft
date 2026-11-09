@@ -160,6 +160,8 @@ def pitfall_groups(path):
     """坑分组 [[标题, 标签, 上限或 None, [条目]]]：pitfalls 用 ## 分组，候补层用“坑候补”下的 ### 分组。"""
     level = "### " if path == BACKLOG else "## "
     out, cur, inside = [], None, path != BACKLOG
+    if not path.exists():
+        return out
     for l in path.read_text(encoding="utf-8").splitlines():
         if path == BACKLOG and l.startswith("## "):
             inside, cur = l[3:].strip() == "坑候补", None
@@ -211,7 +213,8 @@ def last_consolidated():
 
 def cases_since(day):
     done = re.findall(r"\| 已蒸馏 (\d{4}-\d{2}-\d{2}) \|", LEDGER.read_text(encoding="utf-8"))
-    return sum(1 for d in done if day is None or d > day)
+    # 台账只记到日：归纳当天关闭的案例也计入（宁可多提醒一次，也不让归纳当天之后关闭的案例永远不计数）
+    return sum(1 for d in done if day is None or d >= day)
 
 
 def pattern_sections():
@@ -396,7 +399,7 @@ def cmd_check(_):
         print(f"check 未通过：{len(errors)} 处")
         return 1
     print(f"check 通过（能力卡 {len(cards)} 张，经验 {len(ids)} 条（通用 {len(general)}/{MAX_GENERAL}），"
-          f"坑 {len(pits)} 条（各组未超上限），warn {len(warns)}）")
+          f"坑 {len(pits)} 条（常驻层各组未超上限）、坑候补 {sum(len(g[3]) for g in pitfall_groups(BACKLOG))} 条，warn {len(warns)}）")
     return 0
 
 
