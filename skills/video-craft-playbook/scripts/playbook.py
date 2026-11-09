@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""video-craft-playbook 维护工具：status / new-case / check / close。只用标准库。"""
+"""video-craft-playbook 维护工具：status / brief / new-case / check / close / consolidate。只用标准库。"""
 
 import argparse
 import datetime as dt
@@ -22,8 +22,9 @@ BACKLOG = REFS / "lessons-backlog.md"
 CARD_FIELDS = ["产出", "擅长的表达", "边界", "确定性", "代价", "接口", "入口", "验证"]
 STALE_DAYS = 90
 FIELD_WARN, FIELD_FAIL = 400, 600
-MAX_LESSONS, MAX_PITFALLS, MAX_PATTERN_LINES = 60, 60, 12
-ENTRY_WARN, CONSOLIDATE_AT, BACKLOG_STALE_DAYS = 300, 10, 90
+MAX_LESSONS, MAX_GENERAL, MAX_PATTERN_LINES = 60, 25, 12
+ENTRY_WARN, CHECKPOINT_WARN = 300, 15
+CONSOLIDATE_AT, BACKLOG_STALE_DAYS, CONSOLIDATE_CASES, RECENT_CASES = 15, 60, 5, 10
 QUOTA = {"craft-lessons.md": 2, "pitfalls.md": 3, "composition-patterns.md": 1}
 EXPERIENCE = ["craft-lessons.md", "pitfalls.md", "lessons-backlog.md"]
 BIASED = re.compile(
@@ -35,6 +36,37 @@ CARD_ID = re.compile(r"^([A-H]\d+) ")
 OVERVIEW_ROW = re.compile(r"^\| ([A-H]\d+) \| ", re.M)
 LESSON_ID = re.compile(r"^- \*\*L(\d+) ", re.M)
 LESSON_REF = re.compile(r"(?:craft-lessons|lessons-backlog) L(\d+)")
+PHASES = ["规划", "执行", "审片", "交付"]
+TAG_VOCAB = {
+    "歌词MV": "歌词 MV、唱段对口型",
+    "产品片": "产品发布、宣传、界面演示",
+    "预告片": "预告片、把既有素材剪成短版",
+    "讲解片": "解说、科普、口播",
+    "复刻": "按参考片、参考图或类型片复刻",
+    "模板": "参数化模板、批量出片",
+    "画风": "指定艺术风格或画家风格",
+    "生成": "生成视频或图像素材",
+    "3D": "3D 资产、Blender、程序化 3D 渲染",
+    "three.js": "three.js 场景",
+    "物理": "物理模拟、参数搜索",
+    "网页渲染": "Remotion、HyperFrames 等浏览器逐帧渲染",
+    "运动模糊": "需要真运动模糊",
+    "抠像": "matte、遮罩、抠出主体",
+    "遮幅": "宽银幕遮幅、活动区",
+    "素材检索": "找真实素材、开放素材库",
+    "配乐": "配乐、卡点、用户指定音乐",
+    "配音": "TTS、人声、对白",
+    "音效": "事件音效、拟音",
+    "ffmpeg": "ffmpeg 剪辑、封装、转码脚本",
+    "付费": "付费调用",
+    "弱模型": "较弱或便宜的模型来做",
+    "对比实验": "同题多模型或有无手册对比",
+}
+TAG_BLOCK = re.compile(r"〔(通用|条件：([^｜〕]+))｜([^〕]+)〕")
+GROUP_TAG = re.compile(r"〔([^｜〕]+)(?:｜上限 (\d+))?〕\s*$")
+CARD_COLUMNS = ["起作用", "适用但漏用", "照做但误导", "不适用"]
+CARD_REF = re.compile(r"(?<![A-Za-z0-9-])L(\d+)")
+LAST_CONSOLIDATED = re.compile(r"上次归纳：(\d{4}-\d{2}-\d{2})")
 
 
 def today():
@@ -100,6 +132,88 @@ def entries(path):
     return [l for l in path.read_text(encoding="utf-8").splitlines() if l.startswith("- ")]
 
 
+def split_tags(s):
+    return {t for t in re.split(r"[、,，\s]+", s.strip()) if t}
+
+
+def lessons(path=None):
+    """经验条目 [{id, line, no, tagged, general, tags, phases}]；候补层只取“经验候补”分节。"""
+    path = path or LESSONS
+    out, sec = [], None
+    if not path.exists():
+        return out
+    for i, l in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if l.startswith("## "):
+            sec = l[3:].strip()
+        m = LESSON_ID.match(l)
+        if not m or (path == BACKLOG and sec != "经验候补"):
+            continue
+        t = TAG_BLOCK.search(l)
+        out.append({"id": int(m.group(1)), "line": l, "no": i, "tagged": bool(t),
+                    "general": bool(t) and t.group(1) == "通用",
+                    "tags": split_tags(t.group(2)) if t and t.group(2) else set(),
+                    "phases": split_tags(t.group(3)) if t else set()})
+    return out
+
+
+def pitfall_groups(path):
+    """坑分组 [[标题, 标签, 上限或 None, [条目]]]：pitfalls 用 ## 分组，候补层用“坑候补”下的 ### 分组。"""
+    level = "### " if path == BACKLOG else "## "
+    out, cur, inside = [], None, path != BACKLOG
+    for l in path.read_text(encoding="utf-8").splitlines():
+        if path == BACKLOG and l.startswith("## "):
+            inside, cur = l[3:].strip() == "坑候补", None
+            continue
+        if not inside:
+            continue
+        if l.startswith(level):
+            m = GROUP_TAG.search(l)
+            cur = [GROUP_TAG.sub("", l[len(level):]).strip(), split_tags(m.group(1)) if m else set(),
+                   int(m.group(2)) if m and m.group(2) else None, []]
+            out.append(cur)
+        elif cur and l.startswith("- "):
+            cur[3].append(l)
+    return out
+
+
+def detail_lines():
+    """候补层“常驻条目细则”：{L 号: 行}。"""
+    out, sec = {}, None
+    for l in BACKLOG.read_text(encoding="utf-8").splitlines() if BACKLOG.exists() else []:
+        if l.startswith("## "):
+            sec = l[3:].strip()
+        m = re.match(r"- \*\*细则 L(\d+)。", l)
+        if m and sec == "常驻条目细则":
+            out[int(m.group(1))] = l
+    return out
+
+
+def card_usage():
+    """归档案例卡“用到的手册条目”：[(日期, slug, {栏: {L 号}})]；不在四栏里的行记为“旧格式引用”。"""
+    out = []
+    for p in sorted(ARCHIVE.glob("*.md")) if ARCHIVE.exists() else []:
+        m = re.search(r"^## 用到的手册条目\n(.*?)(?=^## |\Z)", p.read_text(encoding="utf-8"), re.S | re.M)
+        cols = {}
+        body = re.sub(r"<!--.*?-->", "", m.group(1), flags=re.S) if m else ""
+        for line in body.splitlines():
+            c = re.match(r"- (" + "|".join(CARD_COLUMNS) + r")[：:](.*)", line)
+            ids = {int(n) for n in CARD_REF.findall(c.group(2) if c else line)}
+            if ids:
+                cols.setdefault(c.group(1) if c else "旧格式引用", set()).update(ids)
+        out.append((p.stem[:10], p.stem[11:], cols))
+    return out
+
+
+def last_consolidated():
+    m = LAST_CONSOLIDATED.search(BACKLOG.read_text(encoding="utf-8")) if BACKLOG.exists() else None
+    return m.group(1) if m else None
+
+
+def cases_since(day):
+    done = re.findall(r"\| 已蒸馏 (\d{4}-\d{2}-\d{2}) \|", LEDGER.read_text(encoding="utf-8"))
+    return sum(1 for d in done if day is None or d > day)
+
+
 def pattern_sections():
     """返回 [(案例标题, 正文行数)]，只数 ### 案例。"""
     out, title, n = [], None, 0
@@ -134,10 +248,14 @@ def cmd_status(_):
         for t, age in stale:
             print(f"  - {t}（{age} 天）")
     bl = backlog_candidates()
-    if bl:
+    last = last_consolidated()
+    since = cases_since(last)
+    if bl or since:
         oldest = backlog_age(bl)
-        due = len(bl) >= CONSOLIDATE_AT or oldest > BACKLOG_STALE_DAYS
-        print(f"{'⚠' if due else '·'} 候补层 {len(bl)} 条，最老 {oldest} 天" + ("（到归纳阈值，跑 `playbook.py consolidate`）" if due else ""))
+        due = len(bl) >= CONSOLIDATE_AT or oldest > BACKLOG_STALE_DAYS or since >= CONSOLIDATE_CASES
+        print(f"{'⚠' if due else '·'} 候补层 {len(bl)} 条，最老 {oldest} 天；上次归纳 {last or '无记录'} 以来关闭 {since} 个案例"
+              + ("（到归纳阈值，跑 `playbook.py consolidate`）" if due else ""))
+    print("· 规划、执行、审片、交付各阶段开始时跑 `playbook.py brief --phase <阶段> --tags <标签>`，标签词表 `brief --list-tags`")
     rows = [l for l in LEDGER.read_text(encoding="utf-8").splitlines() if re.match(r"\| \d{4}-", l)]
     if rows:
         print(f"台账共 {len(rows)} 条，最近：{rows[-1]}")
@@ -221,9 +339,33 @@ def cmd_check(_):
                     errors.append(f"{md.name}:{i} 引用的 L{n} 在 craft-lessons 与 lessons-backlog 都不存在")
     if len(ids) > MAX_LESSONS:
         errors.append(f"craft-lessons {len(ids)} 条，超过上限 {MAX_LESSONS}，先合并或移出")
+    resident = lessons()
+    for label, group in (("craft-lessons", resident), ("lessons-backlog", lessons(BACKLOG))):
+        for e in group:
+            where = f"{label} L{e['id']}"
+            if not e["tagged"]:
+                errors.append(f"{where} 缺适用面与阶段标签〔通用｜阶段〕或〔条件：标签｜阶段〕")
+                continue
+            bad = sorted((e["tags"] - TAG_VOCAB.keys()) | (e["phases"] - set(PHASES)))
+            if bad or not e["phases"]:
+                errors.append(f"{where} 标签不在词表里：{'、'.join(bad) or '缺阶段'}（词表见 brief --list-tags）")
+    general = [e for e in resident if e["general"]]
+    if len(general) > MAX_GENERAL:
+        errors.append(f"craft-lessons 通用条目 {len(general)} 条，超过 {MAX_GENERAL}：新条目要胜过最弱的通用条目才能进，否则标条件")
     pits = entries(PITFALLS)
-    if len(pits) > MAX_PITFALLS:
-        errors.append(f"pitfalls {len(pits)} 条，超过上限 {MAX_PITFALLS}，先合并或移出")
+    for path in (PITFALLS, BACKLOG):
+        for title, tags, cap, items in pitfall_groups(path):
+            bad = sorted(tags - TAG_VOCAB.keys())
+            if not tags or bad:
+                errors.append(f"{path.name}「{title}」分组缺工具标签或标签不在词表里：{'、'.join(bad)}")
+            if path == PITFALLS and cap is None:
+                errors.append(f"pitfalls「{title}」分组标题缺“上限 N”")
+            elif path == PITFALLS and len(items) > cap:
+                errors.append(f"pitfalls「{title}」{len(items)} 条，超过本组上限 {cap}，先合并或移出")
+    for day, slug, cols in card_usage():
+        for col, ns in cols.items():
+            for n in sorted(ns - set(all_ids)):
+                warns.append(f"案例卡 {slug}「{col}」引用的 L{n} 不存在")
     for title, n in pattern_sections():
         if n > MAX_PATTERN_LINES:
             errors.append(f"composition-patterns「{title}」{n} 行，超过 {MAX_PATTERN_LINES} 行")
@@ -238,8 +380,9 @@ def cmd_check(_):
                 continue
             if "（" not in line:
                 warns.append(f"{name}:{i} 没有来源案例")
-            if name != "lessons-backlog.md" and len(line) > ENTRY_WARN:
-                warns.append(f"{name}:{i} 单条 {len(line)} 字符，超过 {ENTRY_WARN}，归纳时拆成一句结论 + 候补细节")
+            size = len(TAG_BLOCK.sub("", line))
+            if name != "lessons-backlog.md" and size > ENTRY_WARN:
+                warns.append(f"{name}:{i} 单条 {size} 字符（不计标签），超过 {ENTRY_WARN}，归纳时拆成一句结论 + 候补细节")
     ledger = LEDGER.read_text(encoding="utf-8")
     for p in sorted(INBOX.glob("*.md")) if INBOX.exists() else []:
         slug = p.stem[11:]
@@ -252,7 +395,8 @@ def cmd_check(_):
     if errors:
         print(f"check 未通过：{len(errors)} 处")
         return 1
-    print(f"check 通过（能力卡 {len(cards)} 张，经验 {len(ids)} 条，坑 {len(pits)} 条，warn {len(warns)}）")
+    print(f"check 通过（能力卡 {len(cards)} 张，经验 {len(ids)} 条（通用 {len(general)}/{MAX_GENERAL}），"
+          f"坑 {len(pits)} 条（各组未超上限），warn {len(warns)}）")
     return 0
 
 
@@ -290,32 +434,100 @@ def cmd_close(a):
     return 0
 
 
+def fmt_counts(counter):
+    return "、".join(f"L{n}×{c}" for n, c in counter.most_common()) or "无"
+
+
 def cmd_consolidate(_):
-    print("归纳清单（只读，不改文件；处理顺序：删被推翻的 → 合并同主题 → 拆长条 → 晋升 → check）")
+    from collections import Counter
+    print("归纳清单（只读，不改文件；处理顺序：删被推翻的 → 合并同主题 → 拆长条 → 晋升与降级 → 组内按价值排序 → check → 更新候补层“上次归纳”日期）")
     bl = backlog_candidates()
     det = len(backlog_entries()) - len(bl)
+    usage = card_usage()
+    recent = usage[-RECENT_CASES:]
     others = "\n".join(p.read_text(encoding="utf-8") for p in [ROOT / "SKILL.md", *REFS.glob("*.md")] if p != BACKLOG)
-    print(f"1. 候补层 {len(bl)} 条（晋升条件：两个不同案例的来源，或推翻常驻层说法）：")
+    print(f"1. 候补层 {len(bl)} 条（晋升条件见 writeback 第一节第 4 条）：")
     for i, l, d, _ in bl:
         m = LESSON_ID.match(l)
-        tag = f"L{m.group(1)}" if m else ("细则" if l.startswith("- **细则") else "坑")
+        tag = f"L{m.group(1)}" if m else "坑"
         refs = len(re.findall(rf"lessons-backlog L{m.group(1)}\b", others)) if m else 0
+        worked = [s for _, s, cols in usage if m and int(m.group(1)) in cols.get("起作用", set()) and s not in l]
         age = (today() - dt.date.fromisoformat(d)).days if d else -1
-        print(f"   - :{i} {tag}  {age} 天  被其他文件引用 {refs} 处  {l[:40]}…")
+        flag = f"  ← 可晋升：非来源案例记为起作用（{'、'.join(worked)}）" if worked else ""
+        print(f"   - :{i} {tag}  {age} 天  被其他文件引用 {refs} 处  {TAG_BLOCK.sub('', l).replace('**  ', '** ')[:40]}…{flag}")
     print(f"   另有常驻条目细则 {det} 条（下沉的细节，不参与晋升）")
     long_ = []
     for name in ("craft-lessons.md", "pitfalls.md"):
         for i, l in enumerate((REFS / name).read_text(encoding="utf-8").splitlines(), 1):
-            if l.startswith("- ") and len(l) > ENTRY_WARN:
-                long_.append((name, i, len(l)))
+            if l.startswith("- ") and len(TAG_BLOCK.sub("", l)) > ENTRY_WARN:
+                long_.append((name, i, len(TAG_BLOCK.sub("", l))))
     print(f"2. 常驻层超过 {ENTRY_WARN} 字的条目 {len(long_)} 条（拆成一句结论 + 候补细节或工作区指针）：")
     for name, i, n in long_:
         print(f"   - {name}:{i}  {n} 字")
-    cards = "\n".join(p.read_text(encoding="utf-8") for p in ARCHIVE.glob("*.md")) if ARCHIVE.exists() else ""
-    used = {int(n) for n in re.findall(r"\bL(\d+)\b", cards)}
-    unused = [n for n in lesson_ids() if n not in used]
-    print(f"3. 常驻层容量：经验 {len(lesson_ids())}/{MAX_LESSONS}，坑 {len(entries(PITFALLS))}/{MAX_PITFALLS}；晋升一条就要合并或移出一条")
-    print(f"4. 从未被归档案例卡引用的经验 {len(unused)} 条（使用信号，不是删除指令；案例卡“用到的手册条目”一节写得越全越准）：L" + "、L".join(map(str, unused)))
+    res = lessons()
+    gen = [e for e in res if e["general"]]
+    print(f"3. 容量：经验 {len(res)}/{MAX_LESSONS}（通用 {len(gen)}/{MAX_GENERAL}）；晋升进满员的层要一进一出")
+    print("   坑：" + "；".join(f"{t} {len(items)}/{cap}" for t, _, cap, items in pitfall_groups(PITFALLS)))
+    print("   坑候补：" + ("；".join(f"{t} {len(items)} 条" for t, _, _, items in pitfall_groups(BACKLOG)) or "无"))
+    print("   各阶段通用条目：" + "、".join(f"{p} {sum(p in e['phases'] for e in gen)}" for p in PHASES)
+          + f"（加上命中的条件与候补条目，每个检查点 ≤ {CHECKPOINT_WARN} 条为宜）")
+    col = lambda name, cards: Counter(n for _, _, c in cards for n in c.get(name, set()))
+    print(f"4. 案例卡计数（共 {len(usage)} 张，近 {len(recent)} 张；四栏新格式 + 旧格式引用；零次不是删除信号）：")
+    print("   适用但漏用（改阶段标签或挂到检查点，不降级）：" + fmt_counts(col("适用但漏用", usage)))
+    print("   照做但误导（降级候选，先核实证据）：" + fmt_counts(col("照做但误导", usage)))
+    notapp = col("不适用", recent)
+    weak = Counter({e["id"]: notapp[e["id"]] for e in gen if notapp[e["id"]] >= 5})
+    print("   通用条目近案记“不适用” ≥ 5 次（改标条件的候选）：" + fmt_counts(weak))
+    used = col("起作用", recent) + col("旧格式引用", recent)
+    print(f"   常驻经验近案使用次数：{fmt_counts(Counter({n: c for n, c in used.items() if n in {e['id'] for e in res}}))}；"
+          f"未出现 {sum(1 for e in res if e['id'] not in used)} 条")
+    last = last_consolidated()
+    print(f"5. 节奏：上次归纳 {last or '无记录'}，此后关闭 {cases_since(last)} 个案例；"
+          f"阈值：候补 ≥ {CONSOLIDATE_AT} 条、最老 > {BACKLOG_STALE_DAYS} 天、或关闭 ≥ {CONSOLIDATE_CASES} 个案例，先到者为准")
+    return 0
+
+
+def cmd_brief(a):
+    res, cand, det = lessons(), lessons(BACKLOG), detail_lines()
+    if a.list_tags:
+        groups = pitfall_groups(PITFALLS) + pitfall_groups(BACKLOG)
+        print("阶段：" + "、".join(PHASES))
+        print("条件标签（括号里是经验 / 候补 / 坑的条数）：")
+        for t, d in TAG_VOCAB.items():
+            n3 = sum(len(items) for _, tags, _, items in groups if t in tags)
+            print(f"  {t}：{d}（{sum(t in e['tags'] for e in res)} / {sum(t in e['tags'] for e in cand)} / {n3}）")
+        return 0
+    if not a.phase:
+        sys.exit("用 --phase 指定阶段：" + "、".join(PHASES))
+    tags = split_tags(a.tags or "")
+    if tags - TAG_VOCAB.keys():
+        sys.exit(f"不在词表里的标签：{'、'.join(sorted(tags - TAG_VOCAB.keys()))}；词表见 brief --list-tags")
+    hit = lambda e: a.phase in e["phases"] and (e["general"] or bool(e["tags"] & tags))
+    general = [e for e in res if e["general"] and hit(e)]
+    cond = [e for e in res if not e["general"] and hit(e)]
+    cands = [e for e in cand if hit(e)]
+    print(f"brief：阶段 {a.phase}；标签 {'、'.join(sorted(tags)) or '无（只列通用条目）'}")
+
+    def show(title, items, note=""):
+        if not items:
+            return
+        print(f"\n【{title}】{len(items)} 条{note}")
+        for e in items:
+            print(e["line"])
+            if e["id"] in det:
+                print(f"  ↳ {det[e['id']]}" if a.details else "  ↳ 有细则：加 --details 一并列出")
+
+    show("通用", general)
+    show("条件", cond)
+    show("候补", cands, "（单一来源或只有外部证据，用前自己判断；用了在案例卡里记一笔）")
+    if a.phase == "执行" and tags:
+        for path, label in ((PITFALLS, "坑"), (BACKLOG, "坑候补")):
+            for title, gtags, _, items in pitfall_groups(path):
+                if gtags & tags and items:
+                    print(f"\n【{label}·{title}】{len(items)} 条")
+                    print("\n".join(items))
+    k = len(general) + len(cond) + len(cands)
+    print(f"\n本检查点经验 {k} 条" + (f"；超过 {CHECKPOINT_WARN} 条，标签给宽了，或这些条目该合并" if k > CHECKPOINT_WARN else ""))
     return 0
 
 
@@ -323,6 +535,12 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    b = sub.add_parser("brief", help="按阶段与标签列出该检查点要照做的条目")
+    b.add_argument("--phase", choices=PHASES)
+    b.add_argument("--tags", help="逗号或顿号分隔，词表见 --list-tags")
+    b.add_argument("--details", action="store_true", help="一并列出细则")
+    b.add_argument("--list-tags", action="store_true")
+    b.set_defaults(fn=cmd_brief)
     n = sub.add_parser("new-case")
     n.add_argument("slug")
     n.add_argument("--title")

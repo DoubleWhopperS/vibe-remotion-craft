@@ -29,3 +29,5 @@
 | 2026-11-04 | qingniang-voice-route | 《青娘》声音路线试听：人声分离与音色复刻对比 | 已蒸馏 2026-11-04 | 新增 capability-atlas.md：E2（无可合并条目：手册没有人声分离能力）。合并进 capability-atlas.md：C5 边界。合并进 task-lenses.md：第六节分轨问题的指针。 |
 | 2026-11-04 | qingniang-seedance-voice | 《青娘》Seedance 参考音频对白样段：用户听审通过 | 已蒸馏 2026-11-04 | 合并进 capability-atlas.md：C1 接口。 |
 | 2026-11-07 | claude-showreel | Claude 自荐 showreel：15 秒 1080p60 全程序化动效片 | 已蒸馏 2026-11-07 | 合并进 capability-atlas.md：A1 边界、B1 边界与验证。 |
+| 2026-11-09 | threejs-look-research | three.js 画面精美度调研：拆解 Web3D 精选第 6 期 20 例（重点 Top01 峡谷航海），对照 r186/r187 官方能力 | 已蒸馏 2026-11-09 | 合并进 `references/capability-atlas.md`：B1 边界补一句（r186 起 WebGPU 端的 SSGI、SSR、GTAO、体积光、高度雾散射节点，本机未验证）；验证行补外部源码核对日期。 |
+| 2026-11-09 | storm-pirate | 10 s 1080p30 暴风雨海盗船：v1 全程序化被判“几何体堆叠、音效差”→ v2/v3 现成船模在 Blender 完善 + 真实录音 + 光的结构 + 远景岩壁，对照参考片三轮补齐 | 已蒸馏 2026-11-09 | 新增 `references/capability-atlas.md` H3「3D 模型与扫描材质库」及总览行（无可合并条目：手册没有 3D 模型与扫描材质来源；C3 是付费生成，H1 是视频 / 图片 / 音频）。 |

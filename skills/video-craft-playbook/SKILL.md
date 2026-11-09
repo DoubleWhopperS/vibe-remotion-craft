@@ -29,6 +29,14 @@ python3 ~/.agents/skills/video-craft-playbook/scripts/playbook.py status
 4. 几种能力拼在一起时，先定好接口：时间权威、帧率、坐标与相机、alpha、色彩、音频总线（task-lenses 第三节）。
 5. 开工前写出“能力分工表”（模板在 task-lenses 第四节），在第一条回复里给用户看，然后执行，不必等确认。
 
+定下这条片子涉及的体裁、工具和素材后，跑一次规划检查点，把列出的条目落进分工表或 PLAN：
+
+```bash
+python3 ~/.agents/skills/video-craft-playbook/scripts/playbook.py brief --phase 规划 --tags <标签，逗号分隔>
+```
+
+标签词表用 `brief --list-tags` 查。它列出该阶段的通用条目、命中标签的条件条目，以及候补层里命中的条目（标“候补”，单一来源或只有外部证据，用前自己判断）；带细则的条目加 `--details` 一并列出。
+
 剪辑类任务（素材已给定，主要做剪辑与后处理）另看 task-lenses 第六节：手法拆成通用部件与“信号 → 手法”规则，见 [references/editing-grammar.md](references/editing-grammar.md)；理解层要产出的信号与字段，见 [references/edit-signals.md](references/edit-signals.md)。两份目前都是推断，用时当作起点，收尾时判断能否升级。
 
 镜头级的运动语法（开场、转场、字卡、界面登场、收场）在选定 Remotion 后可以查外部配方库索引 [references/shot-vocabulary.md](references/shot-vocabulary.md)：按职能槽位和能量找卡，再去仓库读卡全文和 demo 源码；它来自产品宣传片语境，本机未验证。
@@ -37,16 +45,28 @@ python3 ~/.agents/skills/video-craft-playbook/scripts/playbook.py status
 
 ### 3. 执行：工艺与坑
 
-- 跨工具都成立的做法（验收先行、时间单一权威、画面是 t 的纯函数、审片分层、付费三件套、音频规范等）见 [references/craft-lessons.md](references/craft-lessons.md)。
-- 按工具分组的已知坑见 [references/pitfalls.md](references/pitfalls.md)。用到某个工具前，先扫一眼它那一组。
+- 每进入一个阶段（执行、审片、交付），用同一组标签跑一次 `brief --phase <阶段>`，逐条对照再动手。执行阶段的输出附上对应工具的坑与坑候补。条目本身在 [references/craft-lessons.md](references/craft-lessons.md)（跨工具成立的做法，按主题分组）和 [references/pitfalls.md](references/pitfalls.md)（按工具分组的坑），`brief` 只是按阶段和标签把它们取出来；中途换了工具或加了素材，就补上标签再跑一次。
 - 具体工具的调用方式以对应 Skill 为准（atlas 每张卡写了入口）；本手册不重复它们的命令细节。
+- 短动效片（十几秒到一两分钟、无旁白）先守这几条底线，其余条目按需查。2026-11-07 对比评估里，真正改变结果的就是它们（见 [references/lessons-backlog.md](references/lessons-backlog.md)「细则 L50」）：
+  - 规划时：
+    - 开工先写下第一反应，按 task-lenses 第 13 问查它是不是模型的默认套路。
+    - 画面是 t 的纯函数，事件写成拍号或时间表，画面、声音、验收共读一份（craft-lessons L8、L9、L11）。
+    - 先测一次渲染耗时，再定样本数与迭代粒度（L31）。
+  - 交付前（和 `brief --phase 交付` 的输出一起逐条过）：
+    - 声音在编码后的成片上测响度与真峰值（L44）；关键事件量分频段跃升，确认听得见（pitfalls 长尾镲片条）。
+    - 卡点交付误差表，并故意错开一次，确认检查会变红（L37、L22）。
+    - 审片分层到连续帧和局部运动最快的帧（L30、L32）。
+    - 让没参与制作的审片者只看成片挑问题（L56）。
 
 ### 4. 收尾：先判断值不值得沉淀，再决定回不回写
 
 手册靠案例生长，但不是每个案例都要写回来：只重复已有条目、或只对这一条片子成立的细节，写进来只会稀释手册。交付视频（或中止任务）时，按 [references/writeback.md](references/writeback.md) 第一节列候选、过三道门（复用、不可推导、代价），全过且有证据的才算数；能并进已有条目的就不新增。
 
-- **有一条以上算数**：按 writeback 第二节回写：`new-case` 建案例卡 → 蒸馏进对应文件（常驻层满时写进 [references/lessons-backlog.md](references/lessons-backlog.md)）→ `check` → `close`。来不及蒸馏就把卡留在 inbox，下次 `status` 会提醒。
+- **有一条以上算数**：按 writeback 第二节回写：`new-case` 建案例卡 → 蒸馏进对应文件（新经验带〔适用面｜阶段〕标签；常驻层满时写进 [references/lessons-backlog.md](references/lessons-backlog.md)）→ `check` → `close`。来不及蒸馏就把卡留在 inbox，下次 `status` 会提醒。
+- 案例卡的“用到的手册条目”按四栏填：起作用、适用但漏用、照做但误导、不适用。归纳时靠它决定条目的晋升、改阶段与降级（writeback 第一节第 4 条），漏用的也要如实写。
 - **一条都不算数**：跳过回写，不建案例卡、不登记台账。用户说不回写时同样跳过。
+
+回写不阻塞交付：先交成片，再回写；来不及蒸馏就把案例卡留在 inbox。
 
 最终交付说明里写一行 **Playbook 回写**，写明结论：改了哪些文件，或案例卡待蒸馏，或“跳过：<一句话理由>”。
 

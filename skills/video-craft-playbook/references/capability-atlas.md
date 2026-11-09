@@ -48,6 +48,7 @@
 | G4 | 同步歌词数据源（LRC） | 行级时间戳歌词 | 中 | 免费 | 案例验证 |
 | G5 | 镜头、主体与运动分析 | 镜头边界、质量分、轨迹、光流 | 统计高；模型中 | 本地免费 | numpy 路线案例验证 |
 | H1 | 开放素材库检索与下载 | 实拍视频、照片、音效，附来源与许可记录 | 中 | 免费 | 案例验证（Commons 视频与图像、Mixkit；Openverse 已冒烟；Pixabay、Freesound 已冒烟；Pexels 停发新 key） |
+| H3 | 3D 模型与扫描材质库 | 现成 3D 模型、扫描 PBR 材质，附来源与许可 | 中 | 免费 | 案例验证（Sketchfab 用户手动下载、Poly Haven） |
 | H2 | 本地素材库索引与检索 | 自有素材的镜头边界、标签、质量分索引 | 中 | 免费 | 推断 |
 
 ---
@@ -67,7 +68,7 @@
 ### A2 HyperFrames
 - **产出**：由模型写 HTML（GSAP、Lottie、Three.js、CSS 动画、WAAPI 等运行时），渲染成视频。
 - **擅长的表达**：HTML/CSS 动效、动态排版、短时长 motion graphic、logo 演绎、UI 动画、数据图表动画。
-- **边界**：已做过 4 s logo 演绎（GSAP 时间线，渲成 mp4 交给 Remotion 叠效果，code-to-cinema）；复杂 3D、长叙事、逐像素合成没验证（外部 OpenDesign Motion 用它渲出 5 支 14–20 s 成片，含剪纸角色故事与 three.js 3D 字，本机未复现）。`lint` 禁止 tween letterSpacing 这类会按整数像素跳的属性（`gsap_non_transform_motion`），lint 报错时 layout / contrast 审查不会运行。
+- **边界**：已做过 4 s logo 演绎（GSAP 时间线，渲成 mp4 交给 Remotion 叠效果，code-to-cinema）；复杂 3D、长叙事、逐像素合成没验证（外部 OpenDesign Motion 用它渲出 5 支 14–20 s 成片，含剪纸角色故事与 three.js 3D 字，本机未复现）。`lint` 禁止 tween letterSpacing 这类会按整数像素跳的属性（`gsap_non_transform_motion`），lint 报错时 layout / contrast 审查不会运行。`render --fps` 最高 240，用它再 `tmix` 做运动模糊，每帧样本太少；做法见 lessons-backlog L69。
 - **确定性**：高（框架要求单一暂停时间轴、可 seek）。
 - **代价**：免费；需 `npx` 拉取指定版本。
 - **接口**：HTML 合成；输出 mp4 或透明叠层。
@@ -110,13 +111,13 @@
 
 ### B1 three.js / React Three Fiber
 - **产出**：实时光栅化 3D：透视或正交相机、自定义着色器、InstancedMesh、MRT 多通道。
-- **擅长的表达**：体素与像素物件、等轴建筑（正交 + 按法线分档着色 + 深度/法线描线）、物理烘焙数据回放、渲染通道显形（热图 → 深度 → 成品）。
-- **边界**：光栅化没有 GI 和真实软阴影，“棚拍质感”“草地、云海、落日”这类靠光照成立的画面难做；几何能写成解析求交时（网格 DDA + 球），可绕开 three.js，在 WebGL2 片元着色器里路径追踪，得到反弹光、软阴影和景深，1080p、3 spp 约 0.8 s/次（M2 Pro，claude-showreel）；颜色管理要手动关（像素风）；r186 有若干 API 变化（见 pitfalls）。
+- **擅长的表达**：体素与像素物件、等轴建筑（正交 + 按法线分档着色 + 深度/法线描线）、物理烘焙数据回放、渲染通道显形（热图 → 深度 → 成品）；暗场写实海景（Gerstner 海与船同源浮动、现成船模、扫描岩面、遮挡图光柱，storm-pirate）。
+- **边界**：光栅化没有 GI 和真实软阴影：“棚拍质感”、亮场草地落日难做；暗场、大气为主的写实在 WebGL 上成立（一个强光源 + 雾 + 页面内多样本，见 lessons-backlog L70、L75），但逆光浓雾里扫描贴图的细节显不出（storm-pirate）。几何能写成解析求交时，可在 WebGL2 片元着色器里路径追踪（1080p 3 spp 约 0.8 s/次，claude-showreel）。r186 起 WebGPU 端有官方 SSGI、SSR、GTAO、体积光节点，本机未验证，时间累积类节点见 L71。像素风要关颜色管理；r186 API 变化见 pitfalls。
 - **确定性**：高。
-- **代价**：免费；843 帧 1080p60 约 18–24 s（并发 4）。
+- **代价**：免费；843 帧 1080p60 约 18–24 s（并发 4）；单页 + 页面内 24 子样本 HDR 累积，300 帧 1080p 约 62–70 s（2 worker，截图占大头；storm-pirate）。
 - **接口**：在 Remotion 里用 `<ThreeCanvas>`，或独立页面；可读 Blender 导出的 `.glb`（节点名会被改写，序号放 extras）。
 - **入口**：项目内 `npm install --save-exact three@0.186.1 @types/three@0.186.0 @react-three/fiber@9.8.2 @remotion/three@4.0.536`（已验证组合）。
-- **验证**：案例验证（bell-machine、library-3d、city-love）；片元路径追踪案例验证（claude-showreel）；核验 2026-11-07。
+- **验证**：案例验证（bell-machine、library-3d、city-love）；片元路径追踪案例验证（claude-showreel）；暗场写实与帧内多样本案例验证（storm-pirate，2026-11-09）；WebGPU 节点只做过外部源码核对（threejs-look-research）。
 
 ### B2 Blender
 - **产出**：Python（bpy）脚本建模、布光、动画，EEVEE 或 Cycles 后台渲染；也可经 MCP 操作正在运行的 Blender。
@@ -126,7 +127,7 @@
 - **代价**：免费；渲染耗时是主要成本，增量重渲可省大半。
 - **接口**：输入 `.fbx`/`.glb` 资产、Tripo 角色；输出 PNG 序列 / mp4 / `.blend` / `.glb`；带锁定机位的灰盒 playblast 可作 C1 的参考视频输入（布局与运动归 playblast，外观归生成模型）。
 - **入口**：`blender -b`（Blender 5.2.1，引擎名 `BLENDER_EEVEE`）；`blender-official` MCP（需 Blender 开着并启用插件）；本机脚本 `effects/snippets/ai3d-pipeline/`、`effects/snippets/iso-three/blender_boxes.py`；专家 skill 族 `scenario-blender-expert`（闸门 `bx_audit.deliverable`、审图 `bx_review`）+ blockout / previs-storyboard / lighting-rendering / animation / export，按 Scenario 插件工具名写，本机用 `execute_blender_code`；其导入函数会清空场景，只在后台跑。
-- **验证**：案例验证（b612-slice 成片、library-3d 建模）；核验 2026-10-23。专家 skill（scenario-labs/skills@5429dea）2026-10-24 本机后台冒烟通过（9 个模块导入、闸门抓出悬浮件与未应用缩放、审图出图），未进成片。
+- **验证**：案例验证（b612-slice 成片、library-3d 建模；storm-pirate：现成 glTF 船模导入、烘焙骨骼、对齐、补件后导 GLB 给 three.js，Workbench 带贴图三视图每张约 0.04 s 当进渲染端前的形状门，2026-11-09）；核验 2026-10-23。专家 skill（scenario-labs/skills@5429dea）2026-10-24 本机后台冒烟通过（9 个模块导入、闸门抓出悬浮件与未应用缩放、审图出图），未进成片。
 
 ### B3 物理引擎（离线烘焙）
 - **产出**：真实刚体模拟，烘焙成逐帧位姿与接触事件，渲染端只读。
@@ -393,6 +394,16 @@
 - **接口**：输入由镜头描述（主体、动作、环境、景别、运镜、时长、画幅、色调）翻成的检索词与筛选条件（时长、画幅、分辨率）；输出 mp4 / jpg / wav 与 manifest（来源 URL、作者、许可证与原文链接、下载时间、用于哪一镜）。进合成端前按帧率映射、调色匹配。
 - **入口**：需 key（经密钥管理器注入，不进 prompt 不落盘）：Pexels `api.pexels.com/v1/videos/search`（暂停发新 key，2026-11-01）、Pixabay `pixabay.com/api/videos/`、Freesound `freesound.org/apiv2/search/`（预览 CDN 匿名可下，结果带下载量与评分人数）；匿名：Openverse `api.openverse.org/v1`（图片、音频）、Wikimedia Commons API；Mixkit、Coverr 等无 API 站点经 `web-access` 搜索后按许可下载。封装：工作区 `effects/snippets/asset-discovery/`（检索、下载、规格化与调色、逐帧核验、许可对照、Mixkit 抓页）。
 - **验证**：案例验证（asset-discovery-poc，2026-10-30）：Commons 匿名视频全链路进成片（检索 → 下载写 manifest → Lab 迁移两镜 ΔE 11.17→0.94 → 25→30 fps 光流补帧 → Remotion）；同一意图中文词 0–1 条、英文 9–13 条，9 个候选 4 个可用。llm-launch-agate（10-31）：Commons 图像 21 组词入库 13 张，连下原图触发 429，改用 `iiurlwidth` 1920 缩略图；Mixkit 视频、音乐、音效逐条核许可进两支成片。冒烟：Openverse（10-31，新词首次常超网关 60 s，重试得缓存）、Pixabay（11-01）、Freesound（11-02，检索、许可过滤、预览下载进 manifest，许可字段实为 URL）；Pexels 无 key。
+
+### H3 3D 模型与扫描材质库
+- **产出**：现成 3D 模型（glTF / GLB / FBX，常带 PBR 贴图与骨骼）和照片扫描 PBR 材质（颜色、法线、粗糙度），附来源、作者、许可记录。
+- **擅长的表达**：程序化难做像、观众又盯着看的主体：船、建筑、载具、道具；需要真实表面细节的大面（岩壁、地面），用三平面投影铺到程序化体块上。
+- **边界**：只能挑不能改造型，风格与题材受库存限制；Sketchfab 下载要登录，Agent 经用户浏览器会话取下载链接被权限系统拒绝，需用户手动下载；许可逐条看（CC BY 须署名，NC 不可商用）；带骨骼的模型可能藏着另一套状态的部件；扫描材质在逆光浓雾里细节显不出。
+- **确定性**：中。资产本身确定，检索结果随库变化。
+- **代价**：免费。三个英文词检索约 70 条候选，看缩略图与顶点数选型；船模 zip 24 MB（约 9.7 万顶点、14 张贴图），Blender 完善脚本 5 轮；Poly Haven 2K 三张贴图约 10 MB。
+- **接口**：下载到项目 `assets/model/`、`assets/tex/` 并写 manifest；模型进 B2 完善后导 GLB 给 B1；材质在着色器里做世界空间三平面投影。
+- **入口**：Sketchfab Data API `api.sketchfab.com/v3/search?type=models&downloadable=true&q=…`（匿名检索）、`/v3/models/{uid}`（顶点数、贴图数、许可）；Poly Haven `api.polyhaven.com/assets?t=textures|models&c=…`、`/files/{id}`（匿名下载）；完善脚本 `effects/snippets/storm-sea-three/blender/refine_ship.py`。
+- **验证**：案例验证（storm-pirate，2026-11-09：Sketchfab「Pirate ship (Rigged)」CC BY 4.0 由用户手动下载进成片；Poly Haven `rock_face_03` CC0 匿名下载进成片）。
 
 ### H2 本地素材库索引与检索
 - **产出**：用户自有素材（实拍、录屏、历史生成底片、已下载素材）的可检索索引：每条的镜头边界、内容标签、时长、画幅、质量分与可用区间。
