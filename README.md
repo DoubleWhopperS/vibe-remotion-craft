@@ -10,7 +10,7 @@ English: a planning-layer skill set for coding agents that make videos — a neu
 
 ```
 skills/
-  video-craft-playbook/   能力地图 + 选型透镜 + 组合案例 + 经验 + 坑 + 回写协议（playbook.py status/new-case/check/close/consolidate）
+  video-craft-playbook/   能力地图 + 选型透镜 + 组合案例 + 经验 + 坑 + 回写协议（playbook.py status/brief/new-case/check/close/consolidate）
   asset-discovery/        开放素材库检索与来源记录：Wikimedia Commons、Openverse、Pixabay、Pexels、Freesound；manifest 带许可与 sha256
 ```
 
@@ -18,13 +18,13 @@ skills/
 
 | 文件 | 内容 |
 |---|---|
-| `references/capability-atlas.md` | 31 张能力卡，8 个定长字段，验证状态分「案例验证 / 已安装未验证 / 推断」三级，总览表先扫后读 |
+| `references/capability-atlas.md` | 33 张能力卡，8 个定长字段，验证状态分「案例验证 / 已安装未验证 / 推断」三级，总览表先扫后读 |
 | `references/task-lenses.md` | 规划时逐元素要回答的问题、能力之间的接口（时间权威、帧率、坐标、alpha、色彩、音频总线）、能力分工表模板 |
 | `references/composition-patterns.md` | 历史案例实际怎么组合、代价多少；是当时那个任务的解，不是模板 |
 | `references/craft-lessons.md` / `pitfalls.md` | 跨工具成立的做法与按工具分组的坑，各 ≤ 60 条；满了进 `lessons-backlog.md` 候补层 |
 | `references/editing-grammar.md` / `edit-signals.md` | 剪辑手法与「信号 → 手法」规则（教材层，允许推断） |
 | `references/writeback.md` | 回写三道门（复用 / 不可推导 / 代价）、配额、容量上限、晋升规则 |
-| `scripts/playbook.py` | `status` 列欠账、`new-case` 建案例卡、`check` 校验字段定长 / 链接 / 容量 / 倾向性措辞、`close` 归档、`consolidate` 归纳 |
+| `scripts/playbook.py` | `status` 列欠账、`brief --phase <阶段> --tags <标签>` 按规划 / 执行 / 审片 / 交付检查点列出该照做的经验与坑、`new-case` 建案例卡、`check` 校验字段定长 / 链接 / 容量 / 倾向性措辞、`close` 归档、`consolidate` 归纳 |
 
 ## 安装
 
